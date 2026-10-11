@@ -219,12 +219,23 @@ User settings, recordings and shared virtual-camera driver configuration are
 preserved. Native repair uses exact authenticated packages through dpkg or RPM;
 these package-owned environments never use the source-generation activator.
 An RPM killed during payload unpack can leave temporary files that a reinstall
-does not remove. The qualification harness preserves only recognized fragments
-whose transaction timestamp and bytes match the selected authenticated payload,
-then replays the package and verifies the exact installed file set. Its bounded
-recovery helper currently needs retained build staging/content manifests and is
-qualification tooling; a shipped authenticated end-user recovery interface is
-still a promotion gate. Unknown fragments are rejected, never broadly deleted.
+does not remove. The native RPM now includes `nvbroadcast-recover-rpm`, described
+in [authenticated RPM recovery](../../docs/NATIVE_RPM_RECOVERY.md). It uses
+system Python and the project public key embedded in its signed package payload.
+It verifies the supplied RPM, reads its payload without extracting it, and
+preserves only recognized fragments with matching bytes and one transaction ID
+bounded by the transaction marker. Neither retained build staging nor external
+content/checksum manifests are inputs. An optional signed previous RPM recognizes
+paths removed by an interrupted upgrade. Unknown private-prefix paths abort the
+entire plan, and unrelated system files are not touched.
+
+The default command only inspects. Explicit preservation retains the verified
+RPM, public key, original fragments and durable audit under
+`/usr/lib/nvbroadcast-recovery`, while keeping the launch-blocking marker.
+The user then replays that exact saved package through RPM and checks native
+configuration/integrity before launch. Successful preservation alone is not
+successful repair. The helper is shipped by this native adapter; existing
+v1.5.3 public packages are not changed.
 
 This adapter blocks interrupted launches but does not keep the previous runtime
 launchable during a package-manager transaction. Package metadata, native
@@ -258,6 +269,18 @@ native dependencies fail clearly; they are not silently downloaded in this mode.
 
 ## Qualification
 
+The [2026-10-11 authenticated RPM recovery record](qualification/2026-10-11-rpm-recovery.json)
+binds the signed CPU revision 3 candidate (application `0295b190`, adapter
+`16d49c5`) and signed revision 2 baseline. All six recovery/preflight scenarios
+passed 80 steps, including real fresh-install and upgrade interruptions with no
+build staging mounted. The signed `%pre` bootstrap remained available while
+RPM held `/usr/bin` files under temporary names; explicit preservation and exact
+saved-package replay completed full runtime validation. Independent review adds
+38 lifecycle stages covering launch/process refusals, upgrade, reinstall,
+rollback and erase, plus actual scriptlet/dependency checks. The record retains
+the original failure evidence and exact limits; it does not promote public
+packages or qualify CUDA, physical devices or power-loss recovery.
+
 The [2026-10-11 CPU record](qualification/2026-10-11-current-main-cpu.json)
 binds freshly built `2.cpu` and `3.cpu` packages to application and adapter
 commit `0295b190`, including PR #146 and PR #151. Both disconnected fixtures
@@ -270,9 +293,9 @@ runtime probes, all 62 application Python files matched that commit.
 | Fedora 44 | 40 | 24 video frames; 51,200 audio samples (`openh264enc` / `fdkaacenc`) |
 
 These unsigned local candidates use one newly assembled offline CPU runtime.
-Signing the final candidate bytes, authenticated CI builder delivery, shipped
-recovery, CUDA switching and desktop/device acceptance remain
-separate gates. The [2026-10-09 record](qualification/2026-10-09-cpu.json)
+The signed recovery candidate above reuses that verified application runtime
+with its separately qualified adapter. Hosted builder delivery, CUDA switching
+and desktop/device acceptance remain separate gates. The [2026-10-09 record](qualification/2026-10-09-cpu.json)
 retains the earlier qualification of application commit `c2dd082`.
 
 The [published-package migration record](qualification/2026-10-11-legacy-migration.json)
