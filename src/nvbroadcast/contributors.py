@@ -29,6 +29,7 @@ class Contributor:
 # Keep this list cumulative. The pull-request credit gate requires every
 # accepted external human contributor to be registered before their PR merges.
 CONTRIBUTORS: tuple[Contributor, ...] = (
+    Contributor("Callsignwinter", "Callsignwinter"),
     Contributor("John Maingi", "JohnMaingi-IXP"),
     Contributor("Jon Fuller", "perfectra1n"),
     Contributor("Cédric Prezelin", "Tenshock"),

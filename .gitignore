@@ -31,3 +31,6 @@ snapcraft.login
 .flatpak-builder/
 flatpak-build/
 flatpak-repo/
+
+.test-venv*/
+.venv*/

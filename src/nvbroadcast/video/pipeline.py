@@ -49,8 +49,8 @@ class VideoPipeline:
     # four-second isolated-process deadline. Allow the serial worst case plus
     # process startup before a blocking CLI/test caller gives up.
     _RECORDING_CODEC_PROBE_TIMEOUT_SECONDS = 36.0
-    # One-time probe result shared across instances (None = not yet probed)
-    _cuda_convert_probe_result: bool | None = None
+    # Probe each output format independently: BGRA success does not prove YUY2 support.
+    _cuda_convert_probe_results: dict[str, bool] = {}
     # Successful exact capture formats survive GUI pipeline replacement.
     _capture_success_cache: dict[tuple[str, int, int, int], str] = {}
     _capture_success_cache_lock = threading.Lock()
@@ -1994,20 +1994,22 @@ class VideoPipeline:
         return factory is not None
 
     @classmethod
-    def _cuda_convert_available(cls) -> bool:
-        """One-time probe: does cudaupload!cudaconvert!cudadownload work?
+    def _cuda_convert_available(cls, out_format: str = "BGRA") -> bool:
+        """Probe cudaupload!cudaconvert!cudadownload for one output format.
 
         Element registration alone is not enough — CUDA context creation or
         caps negotiation can still fail at runtime, so push real buffers once.
         """
-        if cls._cuda_convert_probe_result is not None:
-            return cls._cuda_convert_probe_result
+        out_format = out_format.upper()
+        cached = cls._cuda_convert_probe_results.get(out_format)
+        if cached is not None:
+            return cached
         if os.getenv("NVBROADCAST_NO_CUDA_CONVERT") == "1":
-            cls._cuda_convert_probe_result = False
+            cls._cuda_convert_probe_results[out_format] = False
             return False
         if not all(cls._has_gst_element(e)
                    for e in ("cudaupload", "cudaconvert", "cudadownload")):
-            cls._cuda_convert_probe_result = False
+            cls._cuda_convert_probe_results[out_format] = False
             return False
         ok = False
         pipe = None
@@ -2016,7 +2018,7 @@ class VideoPipeline:
                 "videotestsrc num-buffers=2 ! "
                 "video/x-raw,format=BGRA,width=320,height=240 ! "
                 "cudaupload ! cudaconvert ! cudadownload ! "
-                "video/x-raw,format=YUY2 ! fakesink"
+                f"video/x-raw,format={out_format} ! fakesink"
             )
             if pipe.set_state(Gst.State.PLAYING) != Gst.StateChangeReturn.FAILURE:
                 msg = pipe.get_bus().timed_pop_filtered(
@@ -2030,9 +2032,9 @@ class VideoPipeline:
                     pipe.set_state(Gst.State.NULL)
                 except Exception:
                     pass
-        cls._cuda_convert_probe_result = ok
+        cls._cuda_convert_probe_results[out_format] = ok
         print(
-            "[NV Broadcast] CUDA convert offload: "
+            f"[NV Broadcast] CUDA convert offload ({out_format}): "
             f"{'enabled' if ok else 'unavailable, using CPU videoconvert'}",
             flush=True,
         )
@@ -2042,7 +2044,7 @@ class VideoPipeline:
         """Colorspace-conversion segment — GPU when the CUDA probe passed."""
         if (not self._cuda_convert_demoted
                 and out_format in _CUDA_SAFE_FORMATS
-                and self._cuda_convert_available()):
+                and self._cuda_convert_available(out_format)):
             return "cudaupload ! cudaconvert ! cudadownload"
         return "videoconvert n-threads=2 qos=false"
 

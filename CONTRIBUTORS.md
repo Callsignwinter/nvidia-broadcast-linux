@@ -69,6 +69,11 @@ diminish authorship of any contribution.
   actual GTK4/Libadwaita/GStreamer binding availability
   ([#103](https://github.com/Hkshoonya/nvidia-broadcast-linux/pull/103)).
 
+
+### Callsignwinter ([@Callsignwinter](https://github.com/Callsignwinter))
+
+- Added format-specific CUDA conversion probing and regression coverage in this fork. BGRA success no longer enables unsupported YUY2 downloads. Upstream acceptance is pending; existing camera fallback behavior is preserved.
+
 ## Other Community Contributions
 
 Bug reports, reproduction details, hardware testing, review comments,
